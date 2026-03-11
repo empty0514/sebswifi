@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Custom Petty Cash Voucher</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#f0f0f0; font-family:Arial,sans-serif; }
+.screen-wrap { max-width:900px; margin:0 auto; padding:24px 16px 60px; }
+h2 { font-size:20px; font-weight:700; color:#1a1a1a; margin-bottom:4px; }
+.screen-sub { font-size:13px; color:#666; margin-bottom:20px; }
+.form-card { background:#fff; border-radius:10px; padding:20px 24px; margin-bottom:20px; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+.form-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#555; margin-bottom:14px; }
+.form-row { display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+.form-group { display:flex; flex-direction:column; gap:4px; flex:1; min-width:160px; }
+.form-group label { font-size:12px; color:#666; font-weight:600; }
+.form-group input { border:1px solid #ddd; border-radius:6px; padding:8px 10px; font-size:13px; outline:none; }
+.form-group input:focus { border-color:#2563eb; }
+
+/* Line items table */
+.items-table { width:100%; border-collapse:collapse; margin-bottom:10px; }
+.items-table th { font-size:12px; color:#555; font-weight:600; text-align:left; padding:6px 8px; border-bottom:2px solid #eee; }
+.items-table th.amt-col { text-align:right; width:140px; }
+.items-table td { padding:5px 4px; }
+.item-desc { width:100%; border:1px solid #ddd; border-radius:6px; padding:7px 8px; font-size:13px; outline:none; }
+.item-desc:focus { border-color:#2563eb; }
+.item-amt  { width:120px; border:1px solid #ddd; border-radius:6px; padding:7px 8px; font-size:13px; outline:none; text-align:right; }
+.item-amt:focus { border-color:#2563eb; }
+.btn-remove-item { background:none; border:none; color:#e53e3e; font-size:20px; cursor:pointer; padding:0 6px; }
+.items-footer { display:flex; justify-content:space-between; align-items:center; padding:8px 0 0; }
+.total-preview { font-size:14px; font-weight:700; color:#1a1a1a; }
+
+.btn { padding:9px 18px; border:none; border-radius:7px; font-size:13px; font-weight:700; cursor:pointer; }
+.btn-add    { background:#e8f5e9; color:#1b5e20; }
+.btn-sig    { background:#f3e8ff; color:#6b21a8; }
+.btn-sig.found { background:#e8f5e9; color:#1b5e20; }
+.btn-generate { background:#1a1a2e; color:#fff; padding:11px 28px; font-size:14px; }
+.btn-print  { background:#2563eb; color:#fff; padding:11px 28px; font-size:14px; cursor:pointer; border:none; border-radius:7px; font-weight:700; }
+.sig-status { font-size:12px; color:#666; margin-left:8px; }
+.sig-status.ok { color:#1b5e20; font-weight:600; }
+.sig-preview-wrap { margin-top:8px; display:none; }
+.sig-preview-wrap img { max-height:60px; border:1px solid #ddd; border-radius:6px; background:#fff; }
+.action-bar { display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap; }
+
+/* Voucher print layout */
+.voucher-preview { background:#fff; border-radius:10px; padding:20px 24px; box-shadow:0 1px 4px rgba(0,0,0,.1); margin-bottom:20px; }
+.preview-title { font-size:13px; font-weight:700; color:#555; margin-bottom:14px; display:flex; align-items:center; gap:12px; }
+.print-page { width:100%; max-width:680px; margin:0 auto; font-family:Arial,sans-serif; font-size:10pt; }
+
+/* Voucher table */
+.voucher { border:1px solid #000; width:100%; border-collapse:collapse; }
+.voucher td, .voucher th { border:1px solid #000; padding:3px 6px; vertical-align:top; }
+.voucher-title { text-align:center; font-weight:bold; font-size:11pt; padding:5px !important; }
+.voucher-date  { text-align:center; font-style:italic; padding:3px 6px !important; }
+.voucher-date span { font-weight:bold; text-decoration:underline; }
+.voucher-to    { padding:3px 6px !important; font-weight:bold; }
+.col-desc   { width:70%; }
+.col-amount { width:30%; text-align:center; }
+.header-row th { text-align:center; font-weight:bold; background:#fff; padding:4px 6px !important; }
+.item-row td   { padding:3px 6px 3px 16px !important; border:none !important; border-bottom:none !important; }
+.item-row td.amt { text-align:center; padding:3px 6px !important; border-left:1px solid #000 !important; }
+.total-label   { text-align:right; font-weight:bold; font-style:italic; padding:3px 6px !important; border-top:1px solid #000 !important; }
+.total-amount  { text-align:center; font-weight:bold; border-top:1px solid #000 !important; padding:3px 6px !important; }
+.received-row td { padding:6px 8px !important; vertical-align:middle; min-height:50px; }
+.sig-img { max-height:45px; display:block; }
+
+@media print {
+  body { background:#fff; }
+  .screen-only { display:none !important; }
+  .screen-wrap { padding:0; max-width:100%; }
+  .voucher-preview { box-shadow:none; padding:0; border-radius:0; margin:0; }
+  .preview-title { display:none; }
+  .print-page { max-width:100%; }
+  @page { margin:10mm; size:A4 portrait; }
+}
+</style>
+</head>
+<body>
+<div class="screen-wrap">
+
+  <div class="screen-only">
+    <h2>📋 Custom Petty Cash Voucher</h2>
+    <p class="screen-sub">Add your own line items · sign on mobile · print</p>
+
+    <div class="form-card">
+      <div class="form-title">Voucher Details</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>TO (Payee)</label>
+          <input type="text" id="payee" value="ARDCORP C/O CRISHA">
+        </div>
+        <div class="form-group" style="max-width:200px;">
+          <label>Date</label>
+          <input type="date" id="voucherDate">
+        </div>
+      </div>
+
+      <div class="form-title" style="margin-top:16px;">Line Items</div>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Description / Particulars</th>
+            <th class="amt-col">Amount</th>
+            <th style="width:36px;"></th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          <tr class="item-row">
+            <td><input type="text" class="item-desc" placeholder="e.g. Office Supplies"></td>
+            <td><input type="number" class="item-amt" placeholder="0.00" min="0" step="0.01" oninput="updateTotal()"></td>
+            <td><button class="btn-remove-item" type="button">x</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="items-footer">
+        <button class="btn btn-add" type="button" id="btnAddItem">+ Add Line Item</button>
+        <div class="total-preview">Total: <span id="totalPreview">0.00</span></div>
+      </div>
+
+      <div class="form-title" style="margin-top:20px;">Signature (Mobile)</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-sig" type="button" id="btnLoadSig">Load Signature from Phone</button>
+        <span class="sig-status" id="sigStatus">Not loaded — open <strong>/sign</strong> on phone</span>
+      </div>
+      <div class="sig-preview-wrap" id="sigPreviewWrap">
+        <img id="sigPreview" src="" alt="Signature">
+      </div>
+
+      <div class="action-bar">
+        <button class="btn btn-generate" type="button" id="btnGenerate">Generate Voucher</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voucher preview -->
+  <div class="voucher-preview" id="voucherPreview" style="display:none;">
+    <div class="preview-title screen-only">
+      Preview
+      <button class="btn-print" type="button" id="btnPrint">Print / Save PDF</button>
+    </div>
+    <div class="print-page" id="printPage"></div>
+  </div>
+
+</div>
+
+<script>
+// Set today's date
+(function() {
+  var d  = new Date();
+  var mm = String(d.getMonth()+1).padStart(2,'0');
+  var dd = String(d.getDate()).padStart(2,'0');
+  document.getElementById('voucherDate').value = d.getFullYear()+'-'+mm+'-'+dd;
+})();
+
+// Wire up first remove button
+document.querySelector('.btn-remove-item').addEventListener('click', function() { removeItem(this); });
+
+// Buttons
+document.getElementById('btnAddItem').addEventListener('click', addItem);
+document.getElementById('btnLoadSig').addEventListener('click', loadSignature);
+document.getElementById('btnGenerate').addEventListener('click', generateVoucher);
+document.getElementById('btnPrint').addEventListener('click', function() { window.print(); });
+
+// Also listen for SSE pushed signature
+var evtSource = new EventSource('/events');
+evtSource.onmessage = function(e) {
+  try {
+    var data = JSON.parse(e.data);
+    if (data.type === 'signature' && data.signature) {
+      applySignature(data.signature);
+    }
+  } catch(_) {}
+};
+
+function addItem() {
+  var tbody = document.getElementById('itemsBody');
+  var tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.innerHTML =
+    '<td><input type="text" class="item-desc" placeholder="Description"></td>' +
+    '<td><input type="number" class="item-amt" placeholder="0.00" min="0" step="0.01"></td>' +
+    '<td><button class="btn-remove-item" type="button">x</button></td>';
+  tr.querySelector('.btn-remove-item').addEventListener('click', function() { removeItem(this); });
+  tr.querySelector('.item-amt').addEventListener('input', updateTotal);
+  tbody.appendChild(tr);
+  tr.querySelector('.item-desc').focus();
+}
+
+function removeItem(btn) {
+  var tbody = document.getElementById('itemsBody');
+  if (tbody.rows.length > 1) {
+    btn.closest('tr').remove();
+    updateTotal();
+  }
+}
+
+function updateTotal() {
+  var total = 0;
+  document.querySelectorAll('.item-amt').forEach(function(inp) {
+    var v = parseFloat(inp.value);
+    if (!isNaN(v)) total += v;
+  });
+  document.getElementById('totalPreview').textContent = fmt(total);
+}
+
+function getItems() {
+  var items = [];
+  var rows = document.querySelectorAll('#itemsBody .item-row');
+  rows.forEach(function(row) {
+    var desc = row.querySelector('.item-desc').value.trim();
+    var amt  = parseFloat(row.querySelector('.item-amt').value);
+    if (desc && !isNaN(amt) && amt > 0) items.push({ desc: desc, amt: amt });
+  });
+  return items;
+}
+
+async function loadSignature() {
+  var btn = document.getElementById('btnLoadSig');
+  btn.textContent = 'Loading...';
+  try {
+    var res  = await fetch('/get-signature');
+    var data = await res.json();
+    if (data.found && data.signature) {
+      applySignature(data.signature);
+    } else {
+      document.getElementById('sigStatus').textContent = 'No signature yet — sign on phone at /sign first';
+      btn.textContent = 'Load Signature from Phone';
+    }
+  } catch(e) {
+    document.getElementById('sigStatus').textContent = 'Error: ' + e.message;
+    btn.textContent = 'Load Signature from Phone';
+  }
+}
+
+function applySignature(dataUrl) {
+  window._signature = dataUrl;
+  var btn = document.getElementById('btnLoadSig');
+  btn.textContent  = 'Signature Loaded';
+  btn.className    = 'btn btn-sig found';
+  document.getElementById('sigStatus').textContent = 'Signature loaded!';
+  document.getElementById('sigStatus').className   = 'sig-status ok';
+  var wrap = document.getElementById('sigPreviewWrap');
+  var img  = document.getElementById('sigPreview');
+  img.src = dataUrl;
+  wrap.style.display = 'block';
+}
+
+function fmt(n) {
+  return n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+
+function formatDate(s) {
+  var p = s.split('-');
+  var d = new Date(+p[0], +p[1]-1, +p[2]);
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+}
+
+function generateVoucher() {
+  var payee   = document.getElementById('payee').value.trim() || 'ARDCORP C/O CRISHA';
+  var dateStr = document.getElementById('voucherDate').value;
+  var items   = getItems();
+  var sig     = window._signature || null;
+
+  if (!dateStr)        { alert('Please select a date.'); return; }
+  if (!items.length)   { alert('Please add at least one line item with a description and amount.'); return; }
+
+  var total = items.reduce(function(s,i){ return s + i.amt; }, 0);
+
+  // Build item rows — no borders between them
+  var itemRowsHTML = items.map(function(item, idx) {
+    return '<tr class="item-row">' +
+      '<td>' + (idx+1) + '. ' + item.desc + '</td>' +
+      '<td class="amt">' + fmt(item.amt) + '</td>' +
+      '</tr>';
+  }).join('');
+
+  // Signature cell
+  var sigCell = sig
+    ? '<img class="sig-img" src="' + sig + '" alt="Signature">'
+    : '';
+
+  var html =
+    '<table class="voucher">' +
+    '<tr><td colspan="2" class="voucher-title">PETTY CASH VOUCHER</td></tr>' +
+    '<tr><td colspan="2" class="voucher-date"><em>DATE :</em> <span>' + formatDate(dateStr) + '</span></td></tr>' +
+    '<tr><td colspan="2" class="voucher-to">TO: ' + payee + '</td></tr>' +
+    '<tr class="header-row"><th class="col-desc">PARTICULARS</th><th class="col-amount">AMOUNT</th></tr>' +
+    itemRowsHTML +
+    '<tr><td class="total-label">TOTAL PAYMENT</td><td class="total-amount">' + fmt(total) + '</td></tr>' +
+    '<tr class="received-row"><td>Received Payment: ' + sigCell + '</td><td></td></tr>' +
+    '</table>';
+
+  document.getElementById('printPage').innerHTML = html;
+  var preview = document.getElementById('voucherPreview');
+  preview.style.display = 'block';
+  preview.scrollIntoView({ behavior:'smooth' });
+
+  // Clear signature from server after use
+  if (sig) fetch('/clear-signature', { method:'POST' });
+}
+</script>
+</body>
+</html>
